@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TACOS · Escatllots del Pla</title>
+<meta name="theme-color" content="#16213E">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌮</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Nunito+Sans:ital,wght@0,400;0,600;0,700;0,800;1,600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<style>
+:root{
+  --night:#16213E;
+  --night-2:#1F2C52;
+  --paper:#FBF1E3;
+  --paper-2:#F3E6D0;
+  --chili:#E0542D;
+  --chili-dark:#B33D1D;
+  --corn:#F2B705;
+  --brick:#8C5A3C;
+  --ink:#1B1B1B;
+  --ink-soft:#5A5548;
+  --good:#3F7D5C;
+  --radius:14px;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:
+    radial-gradient(circle at 15% 0%, rgba(224,84,45,0.18), transparent 45%),
+    radial-gradient(circle at 90% 10%, rgba(242,183,5,0.12), transparent 40%),
+    var(--night);
+  min-height:100vh;
+  font-family:'Nunito Sans', sans-serif;
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:520px; margin:0 auto; padding:20px 16px 60px;}
+header.top{text-align:center; padding:22px 0 18px; color:var(--paper);}
+header.top .eyebrow{font-weight:700; letter-spacing:.18em; font-size:11.5px; text-transform:uppercase; color:var(--corn); margin-bottom:4px;}
+header.top h1{font-family:'Bebas Neue', sans-serif; font-size:56px; letter-spacing:.04em; margin:0; line-height:.9; color:var(--paper); text-shadow:0 3px 0 var(--chili-dark);}
+header.top .sub{margin-top:8px; font-size:14.5px; color:#CBD1E8; font-weight:600;}
+
+.card{background:var(--paper); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:0 10px 30px rgba(0,0,0,.25); border:1px solid rgba(0,0,0,.04);}
+.card h2{font-family:'Bebas Neue', sans-serif; font-size:26px; letter-spacing:.03em; margin:0 0 4px; color:var(--chili-dark);}
+.card .hint{font-size:13px; color:var(--ink-soft); margin:0 0 14px; font-weight:600;}
+
+.closed-banner{background:var(--chili-dark); color:#fff; font-weight:800; text-align:center; padding:10px; border-radius:10px; margin-bottom:14px; font-size:14px;}
+
+label{display:block; font-size:12.5px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin:12px 0 6px;}
+input[type=text], select{width:100%; padding:11px 12px; border-radius:10px; border:2px solid var(--paper-2); background:#fff; font-size:15.5px; font-family:inherit; font-weight:600; color:var(--ink);}
+input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
+
+.row{display:flex; gap:10px;}
+.row > div{flex:1;}
+
+.ingredient-toggles{display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;}
+.ing-chip{
+  display:flex; align-items:center; gap:6px;
+  padding:8px 12px; border-radius:999px;
+  border:2px solid var(--paper-2); background:#fff;
+  font-size:13.5px; font-weight:700; color:var(--ink);
+  cursor:pointer; user-select:none;
+}
+.ing-chip.off{background:var(--paper-2); color:var(--ink-soft); border-color:var(--paper-2); text-decoration:line-through;}
+.ing-chip input{display:none;}
+
+.qty-stepper{display:flex; align-items:center; gap:10px; margin-top:6px;}
+.qty-stepper button{width:38px; height:38px; border-radius:10px; border:none; background:var(--night); color:var(--corn); font-size:20px; font-weight:800; cursor:pointer;}
+.qty-stepper button:active{transform:scale(.95);}
+.qty-stepper span{font-family:'Bebas Neue',sans-serif; font-size:24px; min-width:28px; text-align:center;}
+
+.btn-add{margin-top:14px; width:100%; padding:12px; border:2px dashed var(--brick); background:transparent; color:var(--brick); border-radius:10px; font-weight:800; font-size:14.5px; cursor:pointer;}
+.btn-add:active{background:rgba(140,90,60,.08);}
+
+.cart-line{display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding:10px 0; border-bottom:1px solid var(--paper-2); font-size:14px;}
+.cart-line .info b{font-size:14.5px;}
+.cart-line .info .sense{display:block; color:var(--ink-soft); font-weight:600; font-size:12.5px; margin-top:2px;}
+.cart-line .right{text-align:right; white-space:nowrap; font-weight:800;}
+.cart-line .rm{color:var(--chili-dark); font-weight:800; cursor:pointer; margin-left:8px;}
+.cart-total{display:flex; justify-content:space-between; padding-top:12px; font-family:'Bebas Neue',sans-serif; font-size:22px; color:var(--chili-dark);}
+
+.btn-primary{width:100%; margin-top:14px; padding:15px; border:none; border-radius:12px; background:var(--chili); color:#fff; font-weight:800; font-size:16.5px; letter-spacing:.02em; cursor:pointer; box-shadow:0 6px 0 var(--chili-dark);}
+.btn-primary:active{transform:translateY(3px); box-shadow:0 3px 0 var(--chili-dark);}
+.btn-primary:disabled{background:#B9B4A6; box-shadow:0 6px 0 #948F82; cursor:not-allowed;}
+
+.tower-wrap{display:flex; flex-direction:column-reverse; align-items:center; gap:4px; margin:6px 0 16px; min-height:40px;}
+.tower-block{background:linear-gradient(180deg, var(--corn), #D99A00); color:var(--night); font-weight:800; font-size:12.5px; padding:6px 14px; border-radius:6px; box-shadow:0 3px 0 rgba(0,0,0,.15); animation:pop .35s ease; max-width:90%; text-align:center;}
+.tower-block:nth-child(3n+1){background:linear-gradient(180deg, var(--chili), var(--chili-dark)); color:#fff;}
+.tower-block:nth-child(3n+2){background:linear-gradient(180deg, #6FA087, var(--good)); color:#fff;}
+@keyframes pop{from{transform:scale(.6); opacity:0;} to{transform:scale(1); opacity:1;}}
+
+.group{margin-bottom:18px;}
+.group-head{display:flex; justify-content:space-between; align-items:baseline; border-bottom:3px solid var(--night); padding-bottom:6px; margin-bottom:8px;}
+.group-head h3{font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:.03em; margin:0; color:var(--night);}
+.group-head .count{font-weight:800; color:var(--chili-dark); font-size:15px;}
+.combo-line{display:flex; justify-content:space-between; gap:10px; padding:7px 0; font-size:14px; border-bottom:1px dashed var(--paper-2);}
+.combo-line .qty{font-family:'Bebas Neue',sans-serif; font-size:19px; color:var(--chili-dark); min-width:34px;}
+.combo-line .mid{flex:1;}
+.combo-line .mid .sense{display:block; color:var(--ink-soft); font-weight:600; font-size:12px;}
+.combo-line .noms{color:var(--ink-soft); font-size:12px; font-weight:600; text-align:right; max-width:130px;}
+
+.grand-total{margin-top:14px; padding-top:14px; border-top:3px solid var(--night); display:flex; justify-content:space-between; align-items:baseline;}
+.grand-total .label{font-weight:800; font-size:14px; color:var(--ink-soft);}
+.grand-total .value{font-family:'Bebas Neue',sans-serif; font-size:32px; color:var(--chili-dark);}
+
+.empty{text-align:center; padding:20px 10px; color:var(--ink-soft); font-weight:600; font-size:14px;}
+
+.admin-link{text-align:center; margin-top:22px;}
+.admin-link a{color:#8791B8; font-size:12.5px; font-weight:700; text-decoration:none; border-bottom:1px dotted #8791B8; cursor:pointer;}
+
+.admin-panel textarea{width:100%; min-height:150px; font-family:monospace; font-size:12px; padding:10px; border-radius:10px; border:2px solid var(--paper-2);}
+.admin-actions{display:flex; gap:10px; margin-top:12px;}
+.admin-actions button{flex:1;}
+.btn-secondary{padding:12px; border-radius:10px; border:2px solid var(--night); background:transparent; color:var(--night); font-weight:800; cursor:pointer;}
+.btn-danger{padding:12px; border-radius:10px; border:none; background:var(--chili-dark); color:#fff; font-weight:800; cursor:pointer;}
+
+.toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--night); color:var(--paper); padding:12px 20px; border-radius:999px; font-weight:700; font-size:13.5px; opacity:0; transition:.25s; pointer-events:none; z-index:50; white-space:nowrap; max-width:90vw;}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+.setup-warning{background:#fff3e0; border:2px solid var(--corn); border-radius:12px; padding:16px; margin-bottom:16px; font-size:13.5px; line-height:1.5; color:var(--ink);}
+.setup-warning code{background:#00000012; padding:1px 5px; border-radius:4px;}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="eyebrow">Escatllots del Pla</div>
+    <h1>TACOS</h1>
+    <div class="sub" id="subDate">Comanda de dijous</div>
+  </header>
+
+  <div id="setupWarning" class="setup-warning" style="display:none">
+    ⚠️ <strong>Falta connectar Firebase.</strong> Obre l'arxiu <code>index.html</code> i substitueix l'objecte <code>firebaseConfig</code> per les claus del teu projecte de Firebase (Firestore). Mentre no ho facis, les comandes no es guardaran.
+  </div>
+
+  <!-- FORMULARI DE COMANDA -->
+  <div class="card" id="orderCard">
+    <h2>Fes la teva comanda</h2>
+    <p class="hint" id="deadlineHint">Carregant el menú d'aquesta setmana…</p>
+
+    <label for="nomInput">El teu nom</label>
+    <input type="text" id="nomInput" placeholder="Nom i cognom">
+
+    <div class="row">
+      <div>
+        <label for="tipusSelect">Tipus de tacó</label>
+        <select id="tipusSelect"></select>
+      </div>
+      <div>
+        <label for="midaSelect">Mida</label>
+        <select id="midaSelect"></select>
+      </div>
+    </div>
+
+    <label>Personalitza (per defecte porta de tot)</label>
+    <div class="ingredient-toggles" id="ingredientToggles"></div>
+
+    <label>Quantitat</label>
+    <div class="qty-stepper">
+      <button type="button" id="qtyMinus">−</button>
+      <span id="qtyValue">1</span>
+      <button type="button" id="qtyPlus">+</button>
+    </div>
+
+    <button class="btn-add" id="btnAddLine">+ Afegeix aquest tacó a la comanda</button>
+
+    <div id="cartLines"></div>
+    <div class="cart-total" id="cartTotal" style="display:none">
+      <span>Total</span><span id="cartTotalValue">0,00 €</span>
+    </div>
+
+    <button class="btn-primary" id="btnSubmit" disabled>Envia la comanda</button>
+  </div>
+
+  <!-- LLISTA EN TEMPS REAL, AGRUPADA PER TIPUS -->
+  <div class="card">
+    <h2>Comandes d'aquesta setmana</h2>
+    <p class="hint">Agrupat per tipus perquè sigui fàcil de demanar. S'actualitza sola.</p>
+
+    <div class="tower-wrap" id="towerWrap"></div>
+
+    <div id="ordersList"><div class="empty">Encara no hi ha cap comanda.</div></div>
+
+    <div class="grand-total">
+      <span class="label">TOTAL A PAGAR</span>
+      <span class="value" id="grandTotalValue">0,00 €</span>
+    </div>
+  </div>
+
+  <div class="admin-link">
+    <a id="adminToggle">Ets l'encarregat/da? Edita el menú</a>
+  </div>
+
+  <!-- PANELL ADMIN -->
+  <div class="card admin-panel" id="adminPanel" style="display:none">
+    <h2>Menú de la setmana</h2>
+    <p class="hint">Tipus i ingredients per defecte, i preus per mida. Toca "Desar" quan acabis.</p>
+
+    <label for="dataInput">Data de la comanda</label>
+    <input type="text" id="dataInput" placeholder="ex: Dijous 10 de juliol">
+
+    <label style="margin-top:14px">
+      <input type="checkbox" id="closedCheck" style="width:auto; display:inline-block; margin-right:6px;">
+      Tancar comandes (ningú més podrà demanar)
+    </label>
+
+    <label for="midesJson" style="margin-top:14px">Mides i preus (JSON)</label>
+    <textarea id="midesJson" style="min-height:90px"></textarea>
+
+    <label for="tipusJson" style="margin-top:14px">Tipus i ingredients per defecte (JSON)</label>
+    <textarea id="tipusJson"></textarea>
+
+    <div class="admin-actions">
+      <button class="btn-secondary" id="btnSaveMenu">Desar menú</button>
+    </div>
+    <div class="admin-actions">
+      <button class="btn-danger" id="btnResetOrders">Buidar comandes (nova setmana)</button>
+    </div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* =========================================================
+   CONFIGURACIÓ DE FIREBASE
+   1) Crea un projecte gratuït a https://console.firebase.google.com
+   2) Activa "Firestore Database" (mode de producció)
+   3) Project settings > General > "Els teus apps" > Web (</>) > copia l'objecte de configuració aquí sota
+   4) A Firestore, posa aquestes regles:
+
+      rules_version = '2';
+      service cloud.firestore {
+        match /databases/{database}/documents {
+          match /tacos_setmana/{doc} { allow read, write: if true; }
+          match /tacos_comandes/{doc} { allow read, write: if true; }
+        }
+      }
+   ========================================================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyCaEfm-DsbrnhMo7lVDNYdQsddaGX_NRzc",
+  authDomain: "tacos-97e8e.firebaseapp.com",
+  projectId: "tacos-97e8e",
+  storageBucket: "tacos-97e8e.firebasestorage.app",
+  messagingSenderId: "23312097397",
+  appId: "1:23312097397:web:e7fa6908580005e8dbd83c"
+};
+
+const ADMIN_PASSWORD = "escatllots"; // canvia-ho si vols
+
+let db = null;
+let firebaseReady = false;
+try{
+  if(firebaseConfig.apiKey !== "SUBSTITUEIX_AIXO"){
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    firebaseReady = true;
+  }
+}catch(e){ console.error(e); }
+if(!firebaseReady){ document.getElementById('setupWarning').style.display = 'block'; }
+
+const MENU_DOC = 'tacos_setmana';
+const ORDERS_COL = 'tacos_comandes';
+
+const DEFAULT_MENU = {
+  data: "Dijous",
+  tancat: false,
+  mides: [
+    { nom: "L", preu: 6 },
+    { nom: "XL", preu: 8.5 },
+    { nom: "XXL", preu: 11.5 }
+  ],
+  tipus: [
+    { nom: "Pollastre", ingredients: ["Salsa", "Formatge", "Patates"] },
+    { nom: "Vedella", ingredients: ["Salsa", "Formatge", "Patates"] },
+    { nom: "Mixt (vedella + pollastre)", ingredients: ["Salsa", "Formatge", "Patates"] }
+  ]
+};
+
+let currentMenu = DEFAULT_MENU;
+let cart = [];
+let currentQty = 1;
+let currentSense = new Set(); // ingredients trets de la línia actual
+
+function euro(n){ return n.toFixed(2).replace('.', ',') + ' €'; }
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function currentTipusObj(){
+  const idx = document.getElementById('tipusSelect').value || 0;
+  return currentMenu.tipus[idx];
+}
+function currentMidaObj(){
+  const idx = document.getElementById('midaSelect').value || 0;
+  return currentMenu.mides[idx];
+}
+
+function populateTipusSelect(){
+  const sel = document.getElementById('tipusSelect');
+  sel.innerHTML = '';
+  currentMenu.tipus.forEach((t, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = t.nom;
+    sel.appendChild(opt);
+  });
+  populateMidaSelect();
+  renderIngredientToggles();
+}
+function populateMidaSelect(){
+  const sel = document.getElementById('midaSelect');
+  sel.innerHTML = '';
+  currentMenu.mides.forEach((m, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `${m.nom} · ${euro(m.preu)}`;
+    sel.appendChild(opt);
+  });
+}
+function renderIngredientToggles(){
+  currentSense = new Set();
+  const wrap = document.getElementById('ingredientToggles');
+  wrap.innerHTML = '';
+  const t = currentTipusObj();
+  if(!t || !t.ingredients || !t.ingredients.length){
+    wrap.innerHTML = '<span style="font-size:12.5px;color:var(--ink-soft);font-weight:600;">Aquest tipus no té ingredients opcionals.</span>';
+    return;
+  }
+  t.ingredients.forEach(ing => {
+    const chip = document.createElement('label');
+    chip.className = 'ing-chip';
+    chip.innerHTML = `<input type="checkbox" checked data-ing="${ing}"> ${ing}`;
+    chip.querySelector('input').addEventListener('change', (e) => {
+      if(e.target.checked){ currentSense.delete(ing); chip.classList.remove('off'); }
+      else { currentSense.add(ing); chip.classList.add('off'); }
+    });
+    wrap.appendChild(chip);
+  });
+}
+
+function renderMenu(){
+  document.getElementById('subDate').textContent = currentMenu.data || 'Comanda de dijous';
+  const orderCard = document.getElementById('orderCard');
+  const existingBanner = orderCard.querySelector('.closed-banner');
+  if(existingBanner) existingBanner.remove();
+  const hintEl = orderCard.querySelector('.hint');
+  if(currentMenu.tancat){
+    hintEl.style.display = 'none';
+    const banner = document.createElement('div');
+    banner.className = 'closed-banner';
+    banner.textContent = "Les comandes d'aquesta setmana estan tancades";
+    hintEl.insertAdjacentElement('afterend', banner);
+    document.getElementById('btnAddLine').style.display = 'none';
+    document.getElementById('nomInput').disabled = true;
+    document.getElementById('tipusSelect').disabled = true;
+    document.getElementById('midaSelect').disabled = true;
+  } else {
+    hintEl.style.display = 'block';
+    hintEl.textContent = `Tria el tacó, la mida i treu el que no vulguis — s'envia a l'encarregat/da a l'instant.`;
+    document.getElementById('btnAddLine').style.display = 'block';
+    document.getElementById('nomInput').disabled = false;
+    document.getElementById('tipusSelect').disabled = false;
+    document.getElementById('midaSelect').disabled = false;
+  }
+  populateTipusSelect();
+}
+
+document.getElementById('tipusSelect').addEventListener('change', renderIngredientToggles);
+document.getElementById('midaSelect').addEventListener('change', () => {});
+document.getElementById('qtyMinus').addEventListener('click', () => {
+  if(currentQty > 1){ currentQty--; document.getElementById('qtyValue').textContent = currentQty; }
+});
+document.getElementById('qtyPlus').addEventListener('click', () => {
+  currentQty++; document.getElementById('qtyValue').textContent = currentQty;
+});
+
+document.getElementById('btnAddLine').addEventListener('click', () => {
+  const t = currentTipusObj();
+  const m = currentMidaObj();
+  cart.push({
+    tipus: t.nom,
+    mida: m.nom,
+    preu: m.preu,
+    qty: currentQty,
+    sense: Array.from(currentSense)
+  });
+  currentQty = 1;
+  document.getElementById('qtyValue').textContent = 1;
+  renderCart();
+});
+
+function renderCart(){
+  const linesDiv = document.getElementById('cartLines');
+  linesDiv.innerHTML = '';
+  let total = 0;
+  cart.forEach((line, i) => {
+    total += line.preu * line.qty;
+    const el = document.createElement('div');
+    el.className = 'cart-line';
+    const senseText = line.sense.length ? `<span class="sense">sense ${line.sense.join(', ').toLowerCase()}</span>` : '';
+    el.innerHTML = `<div class="info"><b>${line.qty} × ${line.tipus} (${line.mida})</b>${senseText}</div><div class="right">${euro(line.preu*line.qty)}<span class="rm" data-i="${i}">✕</span></div>`;
+    linesDiv.appendChild(el);
+  });
+  linesDiv.querySelectorAll('.rm').forEach(el => {
+    el.addEventListener('click', (e) => {
+      cart.splice(parseInt(e.target.dataset.i), 1);
+      renderCart();
+    });
+  });
+  document.getElementById('cartTotal').style.display = cart.length ? 'flex' : 'none';
+  document.getElementById('cartTotalValue').textContent = euro(total);
+  const nom = document.getElementById('nomInput').value.trim();
+  document.getElementById('btnSubmit').disabled = !(cart.length && nom && firebaseReady && !currentMenu.tancat);
+}
+document.getElementById('nomInput').addEventListener('input', renderCart);
+
+document.getElementById('btnSubmit').addEventListener('click', async () => {
+  const nom = document.getElementById('nomInput').value.trim();
+  if(!nom || !cart.length) return;
+  const total = cart.reduce((s,l)=>s+l.preu*l.qty,0);
+  const btn = document.getElementById('btnSubmit');
+  btn.disabled = true; btn.textContent = 'Enviant…';
+  try{
+    await db.collection(ORDERS_COL).add({
+      nom, items: cart, total,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    cart = [];
+    document.getElementById('nomInput').value = '';
+    renderCart();
+    toast('Comanda enviada ✓');
+  }catch(e){
+    console.error(e);
+    toast('Error enviant la comanda');
+  }
+  btn.textContent = 'Envia la comanda';
+  renderCart();
+});
+
+function renderOrders(orders){
+  const listDiv = document.getElementById('ordersList');
+  const tower = document.getElementById('towerWrap');
+  tower.innerHTML = '';
+
+  if(!orders.length){
+    listDiv.innerHTML = '<div class="empty">Encara no hi ha cap comanda.</div>';
+    document.getElementById('grandTotalValue').textContent = euro(0);
+    return;
+  }
+
+  // agrupar per tipus -> per combinació (mida + sense) -> qty + noms
+  const groups = {}; // tipus -> { total, combos: { key: {mida, sense, qty, noms:Set} } }
+  let grand = 0;
+
+  orders.forEach(o => {
+    grand += o.total;
+    tower.appendChild(Object.assign(document.createElement('div'), {
+      className: 'tower-block',
+      textContent: o.nom.split(' ')[0]
+    }));
+    o.items.forEach(line => {
+      if(!groups[line.tipus]) groups[line.tipus] = { total: 0, combos: {} };
+      const g = groups[line.tipus];
+      g.total += line.qty;
+      const key = line.mida + '|' + (line.sense || []).slice().sort().join(',');
+      if(!g.combos[key]) g.combos[key] = { mida: line.mida, sense: line.sense || [], qty: 0, noms: [] };
+      g.combos[key].qty += line.qty;
+      g.combos[key].noms.push(line.qty > 1 ? `${o.nom} (${line.qty})` : o.nom);
+    });
+  });
+
+  listDiv.innerHTML = '';
+  Object.keys(groups).sort().forEach(tipusNom => {
+    const g = groups[tipusNom];
+    const groupEl = document.createElement('div');
+    groupEl.className = 'group';
+    const head = document.createElement('div');
+    head.className = 'group-head';
+    head.innerHTML = `<h3>${tipusNom}</h3><span class="count">${g.total} unitats</span>`;
+    groupEl.appendChild(head);
+
+    Object.values(g.combos)
+      .sort((a,b) => a.mida.localeCompare(b.mida))
+      .forEach(combo => {
+        const line = document.createElement('div');
+        line.className = 'combo-line';
+        const senseTxt = combo.sense.length ? `<span class="sense">sense ${combo.sense.join(', ').toLowerCase()}</span>` : '';
+        line.innerHTML = `<span class="qty">${combo.qty}×</span><span class="mid"><b>${combo.mida}</b>${senseTxt}</span><span class="noms">${combo.noms.join(', ')}</span>`;
+        groupEl.appendChild(line);
+      });
+
+    listDiv.appendChild(groupEl);
+  });
+
+  document.getElementById('grandTotalValue').textContent = euro(grand);
+}
+
+if(firebaseReady){
+  db.collection(MENU_DOC).doc('actual').onSnapshot(doc => {
+    currentMenu = doc.exists ? doc.data() : DEFAULT_MENU;
+    renderMenu();
+    renderCart();
+  }, err => console.error(err));
+
+  db.collection(ORDERS_COL).orderBy('timestamp', 'asc').onSnapshot(snap => {
+    const orders = [];
+    snap.forEach(d => orders.push(d.data()));
+    renderOrders(orders);
+  }, err => console.error(err));
+} else {
+  renderMenu();
+}
+
+/* ---------- ADMIN ---------- */
+let adminUnlocked = false;
+document.getElementById('adminToggle').addEventListener('click', () => {
+  const panel = document.getElementById('adminPanel');
+  if(panel.style.display === 'block'){ panel.style.display = 'none'; return; }
+  if(!adminUnlocked){
+    const pass = prompt("Contrasenya de l'encarregat/da:");
+    if(pass !== ADMIN_PASSWORD){ toast('Contrasenya incorrecta'); return; }
+    adminUnlocked = true;
+  }
+  document.getElementById('dataInput').value = currentMenu.data || '';
+  document.getElementById('closedCheck').checked = !!currentMenu.tancat;
+  document.getElementById('midesJson').value = JSON.stringify(currentMenu.mides || [], null, 2);
+  document.getElementById('tipusJson').value = JSON.stringify(currentMenu.tipus || [], null, 2);
+  panel.style.display = 'block';
+});
+
+document.getElementById('btnSaveMenu').addEventListener('click', async () => {
+  if(!firebaseReady){ toast('Cal connectar Firebase primer'); return; }
+  let mides, tipus;
+  try{
+    mides = JSON.parse(document.getElementById('midesJson').value);
+    tipus = JSON.parse(document.getElementById('tipusJson').value);
+  }catch(e){
+    toast('Hi ha un error al JSON');
+    return;
+  }
+  const nouMenu = {
+    data: document.getElementById('dataInput').value.trim() || 'Dijous',
+    tancat: document.getElementById('closedCheck').checked,
+    mides, tipus
+  };
+  try{
+    await db.collection(MENU_DOC).doc('actual').set(nouMenu);
+    toast('Menú desat ✓');
+  }catch(e){
+    console.error(e);
+    toast('Error desant el menú');
+  }
+});
+
+document.getElementById('btnResetOrders').addEventListener('click', async () => {
+  if(!firebaseReady) return;
+  if(!confirm("Segur que vols esborrar totes les comandes d'aquesta setmana?")) return;
+  try{
+    const snap = await db.collection(ORDERS_COL).get();
+    const batch = db.batch();
+    snap.forEach(d => batch.delete(d.ref));
+    await batch.commit();
+    toast('Llista buidada ✓');
+  }catch(e){
+    console.error(e);
+    toast('Error buidant la llista');
+  }
+});
+
+renderMenu();
+renderCart();
+</script>
+</body>
+</html>
