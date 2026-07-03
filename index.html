@@ -129,6 +129,28 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
 .admin-link a{color:#8791B8; font-size:12.5px; font-weight:700; text-decoration:none; border-bottom:1px dotted #8791B8; cursor:pointer;}
 
 .admin-panel textarea{width:100%; min-height:150px; font-family:monospace; font-size:12px; padding:10px; border-radius:10px; border:2px solid var(--paper-2);}
+.edit-row{display:flex; gap:8px; align-items:center; margin-bottom:8px;}
+.edit-row input[type=text]{flex:2;}
+.edit-row input.preu-input{flex:1;}
+.edit-row .rm-row{width:34px; height:38px; flex-shrink:0; border-radius:8px; border:none; background:var(--chili-dark); color:#fff; font-weight:800; cursor:pointer;}
+.tipus-block{border:2px solid var(--paper-2); border-radius:12px; padding:10px; margin-bottom:10px;}
+.tipus-block input[type=text]{margin-bottom:6px;}
+.tipus-block .ing-label{font-size:11px; font-weight:800; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px; display:block;}
+
+.order-admin-item{border-bottom:1px solid var(--paper-2); padding:12px 0;}
+.order-admin-head{display:flex; justify-content:space-between; align-items:center;}
+.order-admin-head .nom{font-weight:800; font-size:15px;}
+.order-admin-head .btns{display:flex; gap:6px;}
+.order-admin-head button{border:none; border-radius:8px; padding:6px 10px; font-weight:800; font-size:12px; cursor:pointer;}
+.btn-edit-order{background:var(--night); color:var(--corn);}
+.btn-del-order{background:var(--chili-dark); color:#fff;}
+.order-edit-line{display:flex; align-items:center; gap:8px; margin:8px 0; font-size:13.5px;}
+.order-edit-line .desc{flex:1;}
+.order-edit-line .qty-stepper{margin-top:0;}
+.order-edit-line .qty-stepper button{width:28px; height:28px; font-size:15px;}
+.order-edit-line .qty-stepper span{font-size:16px; min-width:20px;}
+.order-edit-actions{display:flex; gap:8px; margin-top:8px;}
+.order-edit-actions button{flex:1; padding:9px; border-radius:8px; border:none; font-weight:800; font-size:13px; cursor:pointer;}
 .admin-actions{display:flex; gap:10px; margin-top:12px;}
 .admin-actions button{flex:1;}
 .btn-secondary{padding:12px; border-radius:10px; border:2px solid var(--night); background:transparent; color:var(--night); font-weight:800; cursor:pointer;}
@@ -234,7 +256,7 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
   <!-- PANELL ADMIN -->
   <div class="card admin-panel" id="adminPanel" style="display:none">
     <h2>Menú de la setmana</h2>
-    <p class="hint">Tipus i ingredients per defecte, i preus per mida. Toca "Desar" quan acabis.</p>
+    <p class="hint">Toca "Desar" quan acabis els canvis.</p>
 
     <label for="dataInput">Data de la comanda</label>
     <input type="text" id="dataInput" placeholder="ex: Dijous 10 de juliol">
@@ -244,11 +266,13 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
       Tancar comandes (ningú més podrà demanar)
     </label>
 
-    <label for="midesJson" style="margin-top:14px">Mides i preus (JSON)</label>
-    <textarea id="midesJson" style="min-height:90px"></textarea>
+    <label style="margin-top:18px">Mides i preus</label>
+    <div id="midesRows"></div>
+    <button class="btn-add" id="btnAddMida" type="button">+ Afegeix mida</button>
 
-    <label for="tipusJson" style="margin-top:14px">Tipus i ingredients per defecte (JSON)</label>
-    <textarea id="tipusJson"></textarea>
+    <label style="margin-top:18px">Tipus de taco</label>
+    <div id="tipusRows"></div>
+    <button class="btn-add" id="btnAddTipus" type="button">+ Afegeix tipus</button>
 
     <div class="admin-actions">
       <button class="btn-secondary" id="btnSaveMenu">Desar menú</button>
@@ -553,6 +577,10 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
   renderCart();
 });
 
+let lastOrders = [];
+let editingOrderId = null;
+let editingLines = null;
+
 function renderOrders(orders){
   const listDiv = document.getElementById('ordersList');
   const tower = document.getElementById('towerWrap');
@@ -608,6 +636,112 @@ function renderOrders(orders){
     listDiv.appendChild(groupEl);
   });
 
+  // ---- llista individual, editable per l'encarregat/da ----
+  const indivWrap = document.createElement('div');
+  indivWrap.className = 'group';
+  indivWrap.innerHTML = `<div class="group-head"><h3>Comandes individuals</h3><span class="count">${orders.length}</span></div>`;
+
+  orders.forEach(o => {
+    const item = document.createElement('div');
+    item.className = 'order-admin-item';
+
+    if(editingOrderId === o.id){
+      let linesHtml = '';
+      editingLines.forEach((l, i) => {
+        const senseTxt = l.sense && l.sense.length ? ` <span style="color:var(--ink-soft); font-weight:600;">(sense ${l.sense.join(', ').toLowerCase()})</span>` : '';
+        linesHtml += `<div class="order-edit-line">
+          <span class="desc"><b>${l.tipus}</b> · ${l.mida}${senseTxt}</span>
+          <div class="qty-stepper">
+            <button type="button" class="editQtyMinus" data-i="${i}">−</button>
+            <span>${l.qty}</span>
+            <button type="button" class="editQtyPlus" data-i="${i}">+</button>
+          </div>
+          <span class="rm-row editRmLine" data-i="${i}" style="width:28px;height:28px;font-size:14px;">✕</span>
+        </div>`;
+      });
+      const total = editingLines.reduce((s,l)=>s+l.preu*l.qty,0);
+      item.innerHTML = `
+        <div class="order-admin-head"><span class="nom">${o.nom}</span></div>
+        ${linesHtml || '<p style="font-size:13px;color:var(--ink-soft);">Sense línies — es desar\u00e0 com a eliminada.</p>'}
+        <div class="cart-total" style="display:flex;">${euro(total)}</div>
+        <div class="order-edit-actions">
+          <button class="btn-secondary" id="editSaveBtn">Desa canvis</button>
+          <button class="btn-danger" id="editCancelBtn">Cancel·la</button>
+        </div>`;
+    } else {
+      const detail = o.items.map(l => {
+        const senseTxt = l.sense && l.sense.length ? ` (sense ${l.sense.join(', ').toLowerCase()})` : '';
+        return `${l.qty}×${l.tipus} ${l.mida}${senseTxt}`;
+      }).join(', ');
+      item.innerHTML = `
+        <div class="order-admin-head">
+          <span class="nom">${o.nom} — ${euro(o.total)}</span>
+          <span class="btns">
+            <button class="btn-edit-order editOrderBtn" data-id="${o.id}">✏️ Edita</button>
+            <button class="btn-del-order delOrderBtn" data-id="${o.id}">🗑</button>
+          </span>
+        </div>
+        <div class="detail">${detail}</div>`;
+    }
+    indivWrap.appendChild(item);
+  });
+  listDiv.appendChild(indivWrap);
+
+  // ---- listeners ----
+  listDiv.querySelectorAll('.editOrderBtn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const order = orders.find(o => o.id === btn.dataset.id);
+      editingOrderId = order.id;
+      editingLines = JSON.parse(JSON.stringify(order.items));
+      renderOrders(lastOrders);
+    });
+  });
+  listDiv.querySelectorAll('.delOrderBtn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if(!confirm('Eliminar aquesta comanda?')) return;
+      try{ await db.collection(ORDERS_COL).doc(btn.dataset.id).delete(); toast('Comanda eliminada ✓'); }
+      catch(e){ console.error(e); toast('Error eliminant'); }
+    });
+  });
+  listDiv.querySelectorAll('.editQtyMinus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = parseInt(btn.dataset.i);
+      if(editingLines[i].qty > 1) editingLines[i].qty--;
+      renderOrders(lastOrders);
+    });
+  });
+  listDiv.querySelectorAll('.editQtyPlus').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editingLines[parseInt(btn.dataset.i)].qty++;
+      renderOrders(lastOrders);
+    });
+  });
+  listDiv.querySelectorAll('.editRmLine').forEach(btn => {
+    btn.addEventListener('click', () => {
+      editingLines.splice(parseInt(btn.dataset.i), 1);
+      renderOrders(lastOrders);
+    });
+  });
+  const saveBtn = document.getElementById('editSaveBtn');
+  if(saveBtn) saveBtn.addEventListener('click', async () => {
+    try{
+      if(editingLines.length === 0){
+        await db.collection(ORDERS_COL).doc(editingOrderId).delete();
+        toast('Comanda eliminada ✓');
+      } else {
+        const total = editingLines.reduce((s,l)=>s+l.preu*l.qty,0);
+        await db.collection(ORDERS_COL).doc(editingOrderId).update({ items: editingLines, total });
+        toast('Comanda actualitzada ✓');
+      }
+    }catch(e){ console.error(e); toast('Error desant els canvis'); }
+    editingOrderId = null; editingLines = null;
+  });
+  const cancelBtn = document.getElementById('editCancelBtn');
+  if(cancelBtn) cancelBtn.addEventListener('click', () => {
+    editingOrderId = null; editingLines = null;
+    renderOrders(lastOrders);
+  });
+
   document.getElementById('grandTotalValue').textContent = euro(grand);
 }
 
@@ -620,7 +754,8 @@ if(firebaseReady){
 
   db.collection(ORDERS_COL).orderBy('timestamp', 'asc').onSnapshot(snap => {
     const orders = [];
-    snap.forEach(d => orders.push(d.data()));
+    snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
+    lastOrders = orders;
     renderOrders(orders);
   }, err => console.error(err));
 } else {
@@ -640,27 +775,86 @@ document.getElementById('unlockBtn').addEventListener('click', () => {
   toast('Zona desbloquejada ✓');
 });
 
+let adminMides = [];
+let adminTipus = [];
+
+function renderMidesRows(){
+  const wrap = document.getElementById('midesRows');
+  wrap.innerHTML = '';
+  adminMides.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = 'edit-row';
+    row.innerHTML = `
+      <input type="text" value="${m.nom}" placeholder="Nom (ex: L)" data-i="${i}" data-f="nom">
+      <input type="text" inputmode="decimal" class="preu-input" value="${m.preu}" placeholder="Preu €" data-i="${i}" data-f="preu">
+      <button type="button" class="rm-row" data-i="${i}">✕</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const i = parseInt(inp.dataset.i), f = inp.dataset.f;
+      adminMides[i][f] = f === 'preu' ? (parseFloat(inp.value.replace(',', '.')) || 0) : inp.value;
+    });
+  });
+  wrap.querySelectorAll('.rm-row').forEach(btn => {
+    btn.addEventListener('click', () => { adminMides.splice(parseInt(btn.dataset.i), 1); renderMidesRows(); });
+  });
+}
+
+function renderTipusRows(){
+  const wrap = document.getElementById('tipusRows');
+  wrap.innerHTML = '';
+  adminTipus.forEach((t, i) => {
+    const block = document.createElement('div');
+    block.className = 'tipus-block';
+    block.innerHTML = `
+      <input type="text" value="${t.nom}" placeholder="Nom del tipus" data-i="${i}" data-f="nom">
+      <span class="ing-label">Ingredients (separats per comes, es poden treure)</span>
+      <div class="edit-row">
+        <input type="text" value="${(t.ingredients||[]).join(', ')}" placeholder="ex: Salsa, Formatge, Patates" data-i="${i}" data-f="ingredients">
+        <button type="button" class="rm-row" data-i="${i}">✕</button>
+      </div>`;
+    wrap.appendChild(block);
+  });
+  wrap.querySelectorAll('input[data-f="nom"]').forEach(inp => {
+    inp.addEventListener('input', () => { adminTipus[parseInt(inp.dataset.i)].nom = inp.value; });
+  });
+  wrap.querySelectorAll('input[data-f="ingredients"]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      adminTipus[parseInt(inp.dataset.i)].ingredients = inp.value.split(',').map(s => s.trim()).filter(Boolean);
+    });
+  });
+  wrap.querySelectorAll('.rm-row').forEach(btn => {
+    btn.addEventListener('click', () => { adminTipus.splice(parseInt(btn.dataset.i), 1); renderTipusRows(); });
+  });
+}
+
+document.getElementById('btnAddMida').addEventListener('click', () => {
+  adminMides.push({ nom: '', preu: 0 });
+  renderMidesRows();
+});
+document.getElementById('btnAddTipus').addEventListener('click', () => {
+  adminTipus.push({ nom: '', ingredients: [] });
+  renderTipusRows();
+});
+
 document.getElementById('adminToggle').addEventListener('click', () => {
   if(!adminUnlocked) return;
   const panel = document.getElementById('adminPanel');
   if(panel.style.display === 'block'){ panel.style.display = 'none'; return; }
   document.getElementById('dataInput').value = currentMenu.data || '';
   document.getElementById('closedCheck').checked = !!currentMenu.tancat;
-  document.getElementById('midesJson').value = JSON.stringify(currentMenu.mides || [], null, 2);
-  document.getElementById('tipusJson').value = JSON.stringify(currentMenu.tipus || [], null, 2);
+  adminMides = JSON.parse(JSON.stringify(currentMenu.mides || []));
+  adminTipus = JSON.parse(JSON.stringify(currentMenu.tipus || []));
+  renderMidesRows();
+  renderTipusRows();
   panel.style.display = 'block';
 });
 
 document.getElementById('btnSaveMenu').addEventListener('click', async () => {
   if(!firebaseReady){ toast('Cal connectar Firebase primer'); return; }
-  let mides, tipus;
-  try{
-    mides = JSON.parse(document.getElementById('midesJson').value);
-    tipus = JSON.parse(document.getElementById('tipusJson').value);
-  }catch(e){
-    toast('Hi ha un error al JSON');
-    return;
-  }
+  const mides = adminMides.filter(m => m.nom.trim());
+  const tipus = adminTipus.filter(t => t.nom.trim());
   const nouMenu = {
     data: document.getElementById('dataInput').value.trim() || 'Dijous',
     tancat: document.getElementById('closedCheck').checked,
