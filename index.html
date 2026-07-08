@@ -172,9 +172,6 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
 .toast{position:fixed; bottom:18px; left:50%; transform:translateX(-50%) translateY(20px); background:var(--night); color:var(--paper); padding:12px 20px; border-radius:999px; font-weight:700; font-size:13.5px; opacity:0; transition:.25s; pointer-events:none; z-index:50; white-space:nowrap; max-width:90vw;}
 .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 
-.payment-tabs{display:flex; gap:8px; margin-top:6px;}
-.payment-tab{flex:1; padding:10px; border-radius:10px; border:2px solid var(--paper-2); background:#fff; font-weight:800; font-size:14px; color:var(--ink-soft); cursor:pointer;}
-.payment-tab.active{background:var(--night); border-color:var(--night); color:var(--corn);}
 .payment-detail{margin-top:12px; padding:14px; border-radius:10px; background:var(--paper-2); font-size:14.5px;}
 .payment-detail .num{font-family:'Bebas Neue',sans-serif; font-size:22px; letter-spacing:.03em; color:var(--chili-dark); word-break:break-all;}
 .payment-detail .tap{font-size:12px; color:var(--ink-soft); font-weight:700; margin-top:4px;}
@@ -182,6 +179,13 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
 #proofPreview{margin-top:10px;}
 #proofPreview img{width:100%; border-radius:10px; display:block;}
 #proofPreview .proof-ok{color:var(--good); font-weight:800; font-size:13.5px; margin-top:6px;}
+.find-result{display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--paper-2); font-size:14px;}
+.find-result .info b{font-size:14.5px;}
+.find-result .info .detail{display:block; font-size:12px; color:var(--ink-soft); font-weight:600;}
+.find-result button{flex-shrink:0; padding:8px 12px; border-radius:8px; border:none; background:var(--night); color:var(--corn); font-weight:800; font-size:12.5px; cursor:pointer;}
+.code-box{background:var(--night); color:var(--corn); border-radius:10px; padding:12px 14px; margin-bottom:14px; font-size:14px; line-height:1.5;}
+.code-box b{font-family:'Bebas Neue',sans-serif; font-size:20px; letter-spacing:.1em;}
+.code-box span{color:#CBD1E8; font-size:12px; font-weight:600;}
 .setup-warning{background:#fff3e0; border:2px solid var(--corn); border-radius:12px; padding:16px; margin-bottom:16px; font-size:13.5px; line-height:1.5; color:var(--ink);}
 .setup-warning code{background:#00000012; padding:1px 5px; border-radius:4px;}
 </style>
@@ -262,20 +266,34 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
   <!-- TARGETA DE PAGAMENT (apareix després d'enviar la comanda) -->
   <div class="card" id="paymentCard" style="display:none">
     <h2>🌮 Comanda enviada!</h2>
-    <p class="hint">Paga <b id="paymentTotalValue">0,00 €</b> per un dels dos mètodes:</p>
+    <p class="hint">Paga <b id="paymentTotalValue">0,00 €</b> per transferència:</p>
 
-    <div class="payment-tabs">
-      <button type="button" class="payment-tab active" data-method="bizum">Bizum</button>
-      <button type="button" class="payment-tab" data-method="transfer">Transferència</button>
-    </div>
     <div id="paymentDetail" class="payment-detail"></div>
 
     <label style="margin-top:16px">Puja el comprovant de pagament</label>
     <button class="btn-add" id="btnAttachProof" type="button">📷 Fes o adjunta una foto</button>
-    <input type="file" id="comprovantInput" accept="image/*" capture="environment" style="display:none">
+    <input type="file" id="comprovantInput" accept="image/*" style="display:none">
     <div id="proofPreview"></div>
 
     <button class="btn-primary" id="btnClosePayment" style="margin-top:16px">Fet</button>
+  </div>
+
+  <!-- COMANDES FETES DES D'AQUEST MÒBIL (recordades automàticament) -->
+  <div class="card" id="myOrdersCard" style="display:none">
+    <h2>Les teves comandes</h2>
+    <p class="hint">Fetes des d'aquest mòbil. Toca-hi per pujar o revisar el comprovant.</p>
+    <div id="myOrdersResults"></div>
+  </div>
+
+  <!-- CERCAR UNA COMANDA (si canvies de mòbil) -->
+  <div class="card" id="findOrderCard">
+    <h2>Has fet la comanda des d'un altre mòbil?</h2>
+    <p class="hint">Cerca pel teu nom. Per seguretat, només es pot pujar el comprovant si encara no n'hi ha cap.</p>
+    <div class="row">
+      <input type="text" id="findNomInput" placeholder="El teu nom">
+      <button class="btn-secondary" id="btnFindOrder" style="flex:0 0 auto; padding:0 18px;">Cerca</button>
+    </div>
+    <div id="findResults"></div>
   </div>
 
   <!-- ACCÉS ENCARREGAT/DA -->
@@ -318,10 +336,7 @@ input[type=text]:focus, select:focus{outline:none; border-color:var(--chili);}
       Tancar comandes (ningú més podrà demanar)
     </label>
 
-    <label style="margin-top:18px">Número de Bizum</label>
-    <input type="text" id="bizumInput" placeholder="ex: 612 345 678">
-
-    <label style="margin-top:14px">IBAN per transferència</label>
+    <label style="margin-top:18px">IBAN per transferència</label>
     <input type="text" id="ibanInput" placeholder="ex: ES12 3456 7890 1234 5678 9012">
 
     <label style="margin-top:18px">Mides (noms)</label>
@@ -392,7 +407,6 @@ const ORDERS_COL = 'tacos_comandes';
 const DEFAULT_MENU = {
   data: "Dijous",
   tancat: false,
-  bizum: "",
   iban: "",
   mides: ["L", "XL", "XXL"],
   tipus: [
@@ -699,6 +713,18 @@ function renderCart(){
 document.getElementById('nomInput').addEventListener('input', renderCart);
 
 let lastOrderId = null;
+const MY_ORDERS_KEY = 'tacosMyOrderIds';
+
+function getMyOrderIds(){
+  try{ return JSON.parse(localStorage.getItem(MY_ORDERS_KEY) || '[]'); }
+  catch(e){ return []; }
+}
+function addMyOrderId(id){
+  try{
+    const ids = getMyOrderIds();
+    if(!ids.includes(id)){ ids.push(id); localStorage.setItem(MY_ORDERS_KEY, JSON.stringify(ids)); }
+  }catch(e){ /* localStorage no disponible, no passa res greu */ }
+}
 
 document.getElementById('btnSubmit').addEventListener('click', async () => {
   const nom = document.getElementById('nomInput').value.trim();
@@ -712,6 +738,7 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
     lastOrderId = ref.id;
+    addMyOrderId(ref.id);
     cart = [];
     document.getElementById('nomInput').value = '';
     renderCart();
@@ -725,22 +752,21 @@ document.getElementById('btnSubmit').addEventListener('click', async () => {
   renderCart();
 });
 
-function openPaymentCard(total){
+function openPaymentCard(total, existingComprovant){
   document.getElementById('paymentTotalValue').textContent = euro(total);
-  document.getElementById('proofPreview').innerHTML = '';
-  document.querySelectorAll('.payment-tab').forEach((t,i) => t.classList.toggle('active', i === 0));
-  renderPaymentDetail('bizum');
+  document.getElementById('proofPreview').innerHTML = existingComprovant
+    ? `<img src="${existingComprovant}"><div class="proof-ok">✓ Comprovant pujat — toca el botó per canviar-lo</div>`
+    : '';
+  renderPaymentDetail();
   document.getElementById('paymentCard').style.display = 'block';
   document.getElementById('paymentCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function renderPaymentDetail(method){
+function renderPaymentDetail(){
   const el = document.getElementById('paymentDetail');
-  const value = method === 'bizum' ? currentMenu.bizum : currentMenu.iban;
-  const label = method === 'bizum' ? 'Envia el Bizum a aquest número' : "Fes la transferència a aquest IBAN";
-  const missing = method === 'bizum' ? "L'encarregat/da encara no ha configurat el número de Bizum." : "L'encarregat/da encara no ha configurat l'IBAN.";
+  const value = currentMenu.iban;
   if(value){
-    el.innerHTML = `<div class="num" id="copyValue" style="cursor:pointer;">${value}</div><div class="tap">👆 Toca per copiar — ${label}</div>`;
+    el.innerHTML = `<div class="num" id="copyValue" style="cursor:pointer;">${value}</div><div class="tap">👆 Toca per copiar — Fes la transferència a aquest IBAN</div>`;
     document.getElementById('copyValue').addEventListener('click', async () => {
       try{
         await navigator.clipboard.writeText(value.replace(/\s/g, ''));
@@ -750,17 +776,9 @@ function renderPaymentDetail(method){
       }
     });
   } else {
-    el.innerHTML = `<span class="missing">${missing}</span>`;
+    el.innerHTML = `<span class="missing">L'encarregat/da encara no ha configurat l'IBAN.</span>`;
   }
 }
-
-document.querySelectorAll('.payment-tab').forEach(tab => {
-  tab.addEventListener('click', () => {
-    document.querySelectorAll('.payment-tab').forEach(t => t.classList.remove('active'));
-    tab.classList.add('active');
-    renderPaymentDetail(tab.dataset.method);
-  });
-});
 
 function compressImage(file, maxWidth, quality){
   return new Promise((resolve, reject) => {
@@ -809,6 +827,66 @@ document.getElementById('btnClosePayment').addEventListener('click', () => {
   document.getElementById('paymentCard').style.display = 'none';
   lastOrderId = null;
 });
+
+function doFindOrder(){
+  const q = document.getElementById('findNomInput').value.trim().toLowerCase();
+  const resultsDiv = document.getElementById('findResults');
+  resultsDiv.innerHTML = '';
+  if(!q){ resultsDiv.innerHTML = '<p class="hint">Escriu el teu nom.</p>'; return; }
+  const matches = lastOrders.filter(o => o.nom.toLowerCase().includes(q));
+  if(!matches.length){
+    resultsDiv.innerHTML = '<p class="hint">No s\'ha trobat cap comanda amb aquest nom.</p>';
+    return;
+  }
+  matches.forEach(o => {
+    const detail = o.items.map(l => `${l.qty}×${l.tipus} ${l.mida}`).join(', ');
+    const row = document.createElement('div');
+    row.className = 'find-result';
+    if(o.comprovant){
+      row.innerHTML = `<div class="info"><b>${o.nom} — ${euro(o.total)}</b><span class="detail">${detail}</span></div><span style="font-size:11.5px; font-weight:800; color:var(--good);">✓ Ja té comprovant</span>`;
+    } else {
+      row.innerHTML = `<div class="info"><b>${o.nom} — ${euro(o.total)}</b><span class="detail">${detail}</span></div><button data-id="${o.id}" data-total="${o.total}">📷 Puja comprovant</button>`;
+    }
+    resultsDiv.appendChild(row);
+  });
+  resultsDiv.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      lastOrderId = btn.dataset.id;
+      addMyOrderId(btn.dataset.id);
+      openPaymentCard(parseFloat(btn.dataset.total));
+    });
+  });
+}
+document.getElementById('btnFindOrder').addEventListener('click', doFindOrder);
+document.getElementById('findNomInput').addEventListener('keydown', (e) => {
+  if(e.key === 'Enter') doFindOrder();
+});
+
+function renderMyOrders(){
+  const ids = getMyOrderIds();
+  const card = document.getElementById('myOrdersCard');
+  const wrap = document.getElementById('myOrdersResults');
+  if(!ids.length){ card.style.display = 'none'; return; }
+  const mine = lastOrders.filter(o => ids.includes(o.id));
+  if(!mine.length){ card.style.display = 'none'; return; }
+  wrap.innerHTML = '';
+  mine.forEach(o => {
+    const detail = o.items.map(l => `${l.qty}×${l.tipus} ${l.mida}`).join(', ');
+    const row = document.createElement('div');
+    row.className = 'find-result';
+    const btnLabel = o.comprovant ? '📷 Canvia comprovant' : '📷 Puja comprovant';
+    row.innerHTML = `<div class="info"><b>${o.nom} — ${euro(o.total)}</b><span class="detail">${detail}</span></div><button data-id="${o.id}" data-total="${o.total}" data-comprovant="${o.comprovant ? '1' : ''}">${btnLabel}</button>`;
+    wrap.appendChild(row);
+  });
+  wrap.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const order = mine.find(o => o.id === btn.dataset.id);
+      lastOrderId = btn.dataset.id;
+      openPaymentCard(parseFloat(btn.dataset.total), order ? order.comprovant : null);
+    });
+  });
+  card.style.display = 'block';
+}
 
 let lastOrders = [];
 let editingOrderId = null;
@@ -1056,6 +1134,7 @@ if(firebaseReady){
     snap.forEach(d => orders.push({ id: d.id, ...d.data() }));
     lastOrders = orders;
     renderOrders(orders);
+    renderMyOrders();
   }, err => console.error(err));
 } else {
   renderMenu();
@@ -1196,7 +1275,6 @@ document.getElementById('adminToggle').addEventListener('click', () => {
   if(panel.style.display === 'block'){ panel.style.display = 'none'; return; }
   document.getElementById('dataInput').value = currentMenu.data || '';
   document.getElementById('closedCheck').checked = !!currentMenu.tancat;
-  document.getElementById('bizumInput').value = currentMenu.bizum || '';
   document.getElementById('ibanInput').value = currentMenu.iban || '';
   adminMides = JSON.parse(JSON.stringify(currentMenu.mides || []));
   adminTipus = JSON.parse(JSON.stringify(currentMenu.tipus || []));
@@ -1215,7 +1293,6 @@ document.getElementById('btnSaveMenu').addEventListener('click', async () => {
   const nouMenu = {
     data: document.getElementById('dataInput').value.trim() || 'Dijous',
     tancat: document.getElementById('closedCheck').checked,
-    bizum: document.getElementById('bizumInput').value.trim(),
     iban: document.getElementById('ibanInput').value.trim(),
     mides, tipus, extres
   };
